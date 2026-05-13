@@ -69,13 +69,31 @@ if ! command -v nvidia-ctk &>/dev/null; then
 fi
 
 K3S_CONTAINERD_TMPL="/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
+K3S_CONTAINERD_CONFIG="/var/lib/rancher/k3s/agent/etc/containerd/config.toml"
 
 # Usa {{ template "base" . }} para estender o config padrão do K3s sem sobrescrevê-lo.
 # Isso garante que upgrades do K3s não quebrem o config e o nvidia fica sempre presente.
 if sudo test -f "$K3S_CONTAINERD_TMPL" && sudo grep -q "nvidia" "$K3S_CONTAINERD_TMPL" 2>/dev/null; then
     echo -e "${YELLOW}Aviso: NVIDIA runtime ja configurado no containerd do K3s${NC}"
 else
-    NVIDIA_BINARY=$(command -v nvidia-container-runtime 2>/dev/null || echo "/usr/bin/nvidia-container-runtime")
+    # nvidia-ctk detecta o caminho correto do binário automaticamente
+    NVIDIA_BINARY=""
+    if command -v nvidia-ctk &>/dev/null; then
+        TEMP_CONFIG=$(mktemp)
+        sudo nvidia-ctk runtime configure --runtime=containerd --config="$TEMP_CONFIG" --set-as-default=false 2>/dev/null || true
+        NVIDIA_BINARY=$(grep -oP 'BinaryName = "\K[^"]+' "$TEMP_CONFIG" 2>/dev/null | head -1)
+        rm -f "$TEMP_CONFIG"
+    fi
+    if [ -z "$NVIDIA_BINARY" ]; then
+        NVIDIA_BINARY=$(command -v nvidia-container-runtime 2>/dev/null || echo "/usr/bin/nvidia-container-runtime")
+    fi
+    if [ ! -x "$NVIDIA_BINARY" ]; then
+        echo -e "${RED}Erro: nvidia-container-runtime nao encontrado em '$NVIDIA_BINARY'.${NC}"
+        echo "Verifique: which nvidia-container-runtime"
+        exit 1
+    fi
+    echo "Usando runtime: $NVIDIA_BINARY"
+
     sudo mkdir -p "$(dirname "$K3S_CONTAINERD_TMPL")"
     sudo tee "$K3S_CONTAINERD_TMPL" > /dev/null <<TMPL
 {{ template "base" . }}
@@ -90,6 +108,17 @@ TMPL
     sudo systemctl restart k3s
     echo "Aguardando K3s voltar..."
     kubectl wait --for=condition=Ready node --all --timeout=90s
+
+    # Verifica se o template foi renderizado corretamente no config.toml
+    if ! sudo grep -q "nvidia" "$K3S_CONTAINERD_CONFIG" 2>/dev/null; then
+        echo -e "${RED}Erro: Runtime nvidia ausente no config.toml gerado. Template nao aplicado.${NC}"
+        echo "Template:"
+        sudo cat "$K3S_CONTAINERD_TMPL"
+        echo ""
+        echo "config.toml gerado:"
+        sudo cat "$K3S_CONTAINERD_CONFIG" 2>/dev/null || echo "(arquivo nao encontrado)"
+        exit 1
+    fi
 fi
 echo ""
 
