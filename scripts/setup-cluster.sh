@@ -149,8 +149,19 @@ if [ -n "$NVML_SO" ] && [ -z "$NVML_SO1" ]; then
     sudo ln -s "$NVML_SO" "$(dirname "$NVML_SO")/libnvidia-ml.so.1"
 fi
 sudo ldconfig
-sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml 2>/dev/null
 echo -e "${GREEN}CDI spec gerado em /etc/cdi/nvidia.yaml${NC}"
+echo ""
+
+echo "Preparando libs NVIDIA para o device plugin..."
+sudo mkdir -p /usr/local/nvidia/lib64
+NVIDIA_LIB_SRC=$(find /usr/lib /usr/lib64 -name "libnvidia-ml.so" 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
+if [ -z "$NVIDIA_LIB_SRC" ]; then
+    echo -e "${RED}Erro: libs NVIDIA nao encontradas em /usr/lib ou /usr/lib64${NC}"
+    exit 1
+fi
+sudo cp -P "$NVIDIA_LIB_SRC"/libnvidia*.so* /usr/local/nvidia/lib64/
+echo -e "${GREEN}Libs NVIDIA copiadas de $NVIDIA_LIB_SRC para /usr/local/nvidia/lib64${NC}"
 echo ""
 
 echo "Criando RuntimeClass nvidia..."
@@ -184,21 +195,47 @@ if [ -n "$CURRENT_RUNTIME" ]; then
     echo -e "${GREEN}runtimeClassName removido${NC}"
 fi
 
+echo "Configurando acesso as libs NVIDIA no device plugin..."
+kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='strategic' -p='
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "volumes": [
+          {"name": "nvidia-libs", "hostPath": {"path": "/usr/local/nvidia/lib64"}}
+        ],
+        "containers": [
+          {
+            "name": "nvidia-device-plugin-ctr",
+            "volumeMounts": [
+              {"name": "nvidia-libs", "mountPath": "/usr/local/nvidia/lib64"}
+            ],
+            "env": [
+              {"name": "LD_LIBRARY_PATH", "value": "/usr/local/nvidia/lib64"}
+            ]
+          }
+        ]
+      }
+    }
+  }
+}'
+echo -e "${GREEN}Volume de libs NVIDIA configurado${NC}"
+
 echo "Reiniciando device plugin para aplicar configuracao..."
 kubectl rollout restart daemonset/nvidia-device-plugin-daemonset -n kube-system
 echo ""
 
 echo "Verificando deteccao de GPU (aguardando device plugin reiniciar)..."
-kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=120s 2>/dev/null || true
+kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=180s
 
-# Aguarda o kubelet receber o registro da GPU do device plugin (pode demorar até 60s)
+# Aguarda o kubelet receber o registro da GPU do device plugin (pode demorar até 120s)
 GPU_COUNT="0"
-for i in $(seq 1 6); do
+for i in $(seq 1 12); do
     GPU_COUNT=$(kubectl get nodes -o json | jq -r '.items[0].status.capacity["nvidia.com/gpu"] // "0"' 2>/dev/null || echo "0")
     if [ "$GPU_COUNT" != "0" ] && [ "$GPU_COUNT" != "null" ] && [ -n "$GPU_COUNT" ]; then
         break
     fi
-    echo "   Aguardando kubelet registrar GPU... ($i/6)"
+    echo "   Aguardando kubelet registrar GPU... ($i/12)"
     sleep 10
 done
 
