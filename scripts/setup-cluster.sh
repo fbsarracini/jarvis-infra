@@ -139,6 +139,16 @@ echo ""
 
 echo "Gerando CDI spec para NVIDIA..."
 sudo mkdir -p /etc/cdi
+
+# nvidia-ctk procura por libnvidia-ml.so.1 (symlink versionado).
+# Em algumas instalações só existe libnvidia-ml.so — cria o symlink se necessário.
+NVML_SO=$(find /usr/lib -name "libnvidia-ml.so" 2>/dev/null | head -1)
+NVML_SO1=$(find /usr/lib -name "libnvidia-ml.so.1" 2>/dev/null | head -1)
+if [ -n "$NVML_SO" ] && [ -z "$NVML_SO1" ]; then
+    echo "Criando symlink libnvidia-ml.so.1 -> $NVML_SO"
+    sudo ln -s "$NVML_SO" "$(dirname "$NVML_SO")/libnvidia-ml.so.1"
+fi
+sudo ldconfig
 sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 echo -e "${GREEN}CDI spec gerado em /etc/cdi/nvidia.yaml${NC}"
 echo ""
