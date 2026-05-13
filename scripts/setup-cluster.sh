@@ -23,7 +23,19 @@ command_exists() {
 echo "Verificando pre-requisitos..."
 
 if ! command -v nvidia-smi &>/dev/null; then
-    echo -e "${RED}Erro: NVIDIA drivers nao instalados. Execute nvidia-smi para confirmar antes de continuar.${NC}"
+    echo -e "${RED}Erro: nvidia-smi nao encontrado. Instale os drivers NVIDIA antes de continuar.${NC}"
+    exit 1
+fi
+
+if ! nvidia-smi &>/dev/null; then
+    echo -e "${RED}Erro: nvidia-smi falhou. Driver NVIDIA pode nao estar carregado corretamente.${NC}"
+    echo "Tente: sudo modprobe nvidia && sudo nvidia-smi"
+    exit 1
+fi
+
+if [ ! -e /dev/nvidia0 ]; then
+    echo -e "${RED}Erro: /dev/nvidia0 nao encontrado. Driver NVIDIA pode nao estar inicializado.${NC}"
+    echo "Tente: sudo modprobe nvidia && sudo nvidia-smi"
     exit 1
 fi
 
@@ -64,8 +76,8 @@ if ! command -v nvidia-ctk &>/dev/null; then
     curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
         sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    sudo apt update
-    sudo apt install -y nvidia-container-toolkit
+    sudo apt-get update -q
+    sudo apt-get install -y nvidia-container-toolkit
 fi
 
 K3S_CONTAINERD_TMPL="/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
@@ -98,6 +110,9 @@ else
     sudo tee "$K3S_CONTAINERD_TMPL" > /dev/null <<TMPL
 {{ template "base" . }}
 
+[plugins."io.containerd.grpc.v1.cri"]
+  enable_cdi = true
+
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."nvidia"]
   runtime_type = "io.containerd.runc.v2"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."nvidia".options]
@@ -120,6 +135,12 @@ TMPL
         exit 1
     fi
 fi
+echo ""
+
+echo "Gerando CDI spec para NVIDIA..."
+sudo mkdir -p /etc/cdi
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+echo -e "${GREEN}CDI spec gerado em /etc/cdi/nvidia.yaml${NC}"
 echo ""
 
 echo "Criando RuntimeClass nvidia..."
@@ -147,14 +168,17 @@ fi
 CURRENT_RUNTIME=$(kubectl get daemonset nvidia-device-plugin-daemonset -n kube-system \
     -o jsonpath='{.spec.template.spec.runtimeClassName}' 2>/dev/null || echo "")
 if [ -n "$CURRENT_RUNTIME" ]; then
-    echo "Removendo runtimeClassName do device plugin (nao necessario)..."
+    echo "Removendo runtimeClassName do device plugin..."
     kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='json' \
       -p='[{"op": "remove", "path": "/spec/template/spec/runtimeClassName"}]' 2>/dev/null || true
     echo -e "${GREEN}runtimeClassName removido${NC}"
 fi
+
+echo "Reiniciando device plugin para aplicar configuracao..."
+kubectl rollout restart daemonset/nvidia-device-plugin-daemonset -n kube-system
 echo ""
 
-echo "Verificando detecção de GPU (aguardando device plugin reiniciar)..."
+echo "Verificando deteccao de GPU (aguardando device plugin reiniciar)..."
 kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=120s 2>/dev/null || true
 
 # Aguarda o kubelet receber o registro da GPU do device plugin (pode demorar até 60s)
