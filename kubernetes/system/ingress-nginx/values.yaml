@@ -1,7 +1,7 @@
 controller:
   replicaCount: 1
 
-  # NodePort em vez de LoadBalancer (ambiente local sem MetalLB)
+  # NodePort instead of LoadBalancer (local environment without MetalLB)
   service:
     type: NodePort
     nodePorts:
@@ -16,23 +16,23 @@ controller:
       cpu: 200m
       memory: 256Mi
 
-  # Webhooks desabilitados para simplificar a instalação em ambiente local
+  # Webhooks disabled to simplify installation in a local environment
   admissionWebhooks:
     enabled: false
 
   metrics:
     enabled: true
     serviceMonitor:
-      # Habilitar quando o Prometheus estiver instalado no namespace monitoring
+      # Enable when Prometheus is installed in the monitoring namespace
       enabled: false
       namespace: monitoring
 
-  # Garante que o pod seja agendado mesmo em single-node com taints
+  # Ensures the pod is scheduled even on a single-node cluster with taints
   tolerations: []
 
-  # Configmap com opções globais do NGINX
+  # Global NGINX options configmap
   config:
-    # Exibe o IP real do cliente nos logs (útil com proxy reverso)
+    # Expose the real client IP in logs (useful behind a reverse proxy)
     use-forwarded-headers: "true"
-    # Tamanho máximo de body para uploads (ex: modelos LLM)
+    # Maximum request body size for uploads (e.g. LLM models)
     proxy-body-size: "100m"

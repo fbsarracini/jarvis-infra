@@ -16,6 +16,18 @@ Routes external HTTP/HTTPS traffic to services inside the cluster based on hostn
 **Why NodePort instead of LoadBalancer?**  
 Without MetalLB or a cloud provider, `LoadBalancer` services stay in `<pending>` indefinitely. NodePort exposes fixed ports directly on the node (30080/30443) with no external dependencies.
 
+**Limitation:** because there is no component mapping `:80 → :30080`, all requests must explicitly include the port (e.g. `curl http://app.jarvis.local:30080`). In a production setup a LoadBalancer would handle that transparently.
+
+<!-- TODO: evaluate MetalLB to replace NodePort
+     MetalLB assigns a virtual IP to LoadBalancer services and handles the :80/:443 mapping,
+     eliminating the need to pass explicit ports. Steps:
+       1. Install MetalLB (helm or manifest)
+       2. Configure an IPAddressPool with a free IP range on the local network
+       3. Change service.type from NodePort to LoadBalancer in values.yaml
+       4. Remove the nodePorts block
+     Reference: https://metallb.universe.tf/installation/
+-->
+
 ## Prerequisites
 
 - Helm 3 (`helm version`)
