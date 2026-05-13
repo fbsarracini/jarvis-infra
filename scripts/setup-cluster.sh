@@ -110,9 +110,6 @@ else
     sudo tee "$K3S_CONTAINERD_TMPL" > /dev/null <<TMPL
 {{ template "base" . }}
 
-[plugins."io.containerd.grpc.v1.cri"]
-  enable_cdi = true
-
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."nvidia"]
   runtime_type = "io.containerd.runc.v2"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."nvidia".options]
@@ -135,22 +132,6 @@ TMPL
         exit 1
     fi
 fi
-echo ""
-
-echo "Gerando CDI spec para NVIDIA..."
-sudo mkdir -p /etc/cdi
-
-# nvidia-ctk procura por libnvidia-ml.so.1 (symlink versionado).
-# Em algumas instalações só existe libnvidia-ml.so — cria o symlink se necessário.
-NVML_SO=$(find /usr/lib -name "libnvidia-ml.so" 2>/dev/null | head -1)
-NVML_SO1=$(find /usr/lib -name "libnvidia-ml.so.1" 2>/dev/null | head -1)
-if [ -n "$NVML_SO" ] && [ -z "$NVML_SO1" ]; then
-    echo "Criando symlink libnvidia-ml.so.1 -> $NVML_SO"
-    sudo ln -s "$NVML_SO" "$(dirname "$NVML_SO")/libnvidia-ml.so.1"
-fi
-sudo ldconfig
-sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml 2>/dev/null
-echo -e "${GREEN}CDI spec gerado em /etc/cdi/nvidia.yaml${NC}"
 echo ""
 
 echo "Preparando libs NVIDIA para o device plugin..."
@@ -195,7 +176,7 @@ if [ -n "$CURRENT_RUNTIME" ]; then
     echo -e "${GREEN}runtimeClassName removido${NC}"
 fi
 
-echo "Configurando acesso as libs NVIDIA no device plugin..."
+echo "Configurando acesso as libs NVIDIA e devices no device plugin..."
 kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='strategic' -p='
 {
   "spec": {
@@ -207,6 +188,11 @@ kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='st
         "containers": [
           {
             "name": "nvidia-device-plugin-ctr",
+            "securityContext": {
+              "privileged": true,
+              "allowPrivilegeEscalation": true,
+              "capabilities": {"drop": []}
+            },
             "volumeMounts": [
               {"name": "nvidia-libs", "mountPath": "/usr/local/nvidia/lib64"}
             ],
@@ -219,7 +205,7 @@ kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='st
     }
   }
 }'
-echo -e "${GREEN}Volume de libs NVIDIA configurado${NC}"
+echo -e "${GREEN}Device plugin configurado com acesso privilegiado e libs NVIDIA${NC}"
 
 echo "Reiniciando device plugin para aplicar configuracao..."
 kubectl rollout restart daemonset/nvidia-device-plugin-daemonset -n kube-system
