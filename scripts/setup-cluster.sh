@@ -113,16 +113,19 @@ kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='js
 echo -e "${GREEN}Device plugin configurado com runtimeClassName nvidia${NC}"
 echo ""
 
-echo "Verificando detecção de GPU..."
-kubectl wait --for=condition=available --timeout=30s daemonset/nvidia-device-plugin-daemonset -n kube-system 2>/dev/null || true
-GPU_COUNT=$(kubectl get nodes -o json | jq -r '.items[0].status.capacity["nvidia.com/gpu"]' 2>/dev/null || echo "0")
+echo "Verificando detecção de GPU (aguardando device plugin reiniciar)..."
+kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=120s 2>/dev/null || true
+# Aguarda o kubelet receber o registro da GPU do device plugin
+sleep 10
+GPU_COUNT=$(kubectl get nodes -o json | jq -r '.items[0].status.capacity["nvidia.com/gpu"] // "0"' 2>/dev/null || echo "0")
 
-if [ "$GPU_COUNT" != "null" ] && [ "$GPU_COUNT" != "0" ]; then
+if [ "$GPU_COUNT" != "0" ] && [ "$GPU_COUNT" != "null" ] && [ -n "$GPU_COUNT" ]; then
     echo -e "${GREEN}GPU detectada: $GPU_COUNT device(s)${NC}"
 else
     echo -e "${YELLOW}Aviso: GPU nao detectada no cluster. Verifique:${NC}"
     echo "   - nvidia-smi (deve funcionar no host)"
     echo "   - kubectl logs -n kube-system -l name=nvidia-device-plugin-ds"
+    echo "   - sudo grep nvidia /var/lib/rancher/k3s/agent/etc/containerd/config.toml"
 fi
 echo ""
 
