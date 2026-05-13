@@ -2,6 +2,18 @@
 
 K3s cluster running on a home server for LLM/RAG development and experimentation.
 
+## ⚠️ Scope & Limitations
+
+This project is a **personal homelab setup** for local LLM/RAG experimentation.
+It is intentionally simple: plain shell scripts, single-node K3s, and public images.
+
+It is **not** designed for:
+- Production workloads or multi-tenant environments
+- High availability or disaster recovery
+- Security hardening (no Vault, no Network Policies, no image signing)
+- Custom or private Docker registries
+Contributions and suggestions are welcome — just keep the scope in mind.
+
 ## Hardware Compatibility
 
 Tested with an **NVIDIA GeForce GTX 1060 (6GB VRAM)**, but compatible with any NVIDIA GPU supported by the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/supported-platforms.html).
