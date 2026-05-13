@@ -1,5 +1,8 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/versions.env"
+
 echo "=== Jarvis Cluster Validation ==="
 echo ""
 
@@ -70,7 +73,7 @@ check_gpu "NVIDIA runtime no containerd do K3s" \
     "echo 'Execute: scripts/setup-cluster.sh para reconfigurar o runtime nvidia no containerd'"
 check_gpu "NVIDIA Device Plugin instalado" \
     "kubectl get daemonset -n kube-system nvidia-device-plugin-daemonset" \
-    "echo 'Execute: kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.17.0/deployments/static/nvidia-device-plugin.yml'"
+    "echo 'Execute: kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/${NVIDIA_DEVICE_PLUGIN_VERSION}/deployments/static/nvidia-device-plugin.yml'"
 check_gpu "NVIDIA Device Plugin pods rodando" \
     "kubectl get pods -n kube-system -l name=nvidia-device-plugin-ds --field-selector=status.phase=Running | grep -q Running" \
     "kubectl get pods -n kube-system -l name=nvidia-device-plugin-ds; echo '---'; kubectl logs -n kube-system -l name=nvidia-device-plugin-ds --tail=20"

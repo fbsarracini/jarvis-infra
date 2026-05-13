@@ -1,0 +1,20 @@
+spec:
+  template:
+    spec:
+      volumes:
+        - name: nvidia-libs
+          hostPath:
+            path: /usr/local/nvidia/lib64
+      containers:
+        - name: nvidia-device-plugin-ctr
+          securityContext:
+            privileged: true
+            allowPrivilegeEscalation: true
+            capabilities:
+              drop: []
+          volumeMounts:
+            - name: nvidia-libs
+              mountPath: /usr/local/nvidia/lib64
+          env:
+            - name: LD_LIBRARY_PATH
+              value: /usr/local/nvidia/lib64

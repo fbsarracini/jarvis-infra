@@ -4,6 +4,7 @@ set -e
 # Garante que caminhos relativos funcionem independente de onde o script é chamado
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/versions.env"
 
 echo "=== Jarvis K3s Cluster Setup ==="
 echo "Configurando cluster K3s com suporte GPU"
@@ -148,7 +149,7 @@ if kubectl get daemonset -n kube-system nvidia-device-plugin-daemonset &>/dev/nu
     echo -e "${YELLOW}Aviso: NVIDIA Device Plugin ja instalado${NC}"
 else
     # Versão: https://github.com/NVIDIA/k8s-device-plugin/releases
-    kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.17.0/deployments/static/nvidia-device-plugin.yml
+    kubectl apply -f "https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/${NVIDIA_DEVICE_PLUGIN_VERSION}/deployments/static/nvidia-device-plugin.yml"
     echo -e "${GREEN}NVIDIA Device Plugin instalado${NC}"
 fi
 
@@ -164,34 +165,8 @@ if [ -n "$CURRENT_RUNTIME" ]; then
 fi
 
 echo "Configurando acesso as libs NVIDIA e devices no device plugin..."
-kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='strategic' -p='
-{
-  "spec": {
-    "template": {
-      "spec": {
-        "volumes": [
-          {"name": "nvidia-libs", "hostPath": {"path": "/usr/local/nvidia/lib64"}}
-        ],
-        "containers": [
-          {
-            "name": "nvidia-device-plugin-ctr",
-            "securityContext": {
-              "privileged": true,
-              "allowPrivilegeEscalation": true,
-              "capabilities": {"drop": []}
-            },
-            "volumeMounts": [
-              {"name": "nvidia-libs", "mountPath": "/usr/local/nvidia/lib64"}
-            ],
-            "env": [
-              {"name": "LD_LIBRARY_PATH", "value": "/usr/local/nvidia/lib64"}
-            ]
-          }
-        ]
-      }
-    }
-  }
-}'
+kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='strategic' \
+    --patch-file="$REPO_ROOT/kubernetes/system/nvidia-device-plugin-patch.yaml"
 echo -e "${GREEN}Device plugin configurado com acesso privilegiado e libs NVIDIA${NC}"
 
 echo "Reiniciando device plugin para aplicar configuracao..."

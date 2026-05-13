@@ -33,7 +33,9 @@ kubernetes/
 scripts/
 ├── install-dependencies.sh   # Installs Docker, K3s, Helm, k9s
 ├── setup-cluster.sh          # Configures namespaces, NVIDIA runtime, device plugin
-└── validate-cluster.sh       # Validates the cluster setup
+├── validate-cluster.sh       # Validates the cluster setup
+├── versions.env.sample       # Template for versions.env (copy before running scripts)
+└── versions.env              # Local overrides (gitignored)
 ```
 
 ## Prerequisites
@@ -47,6 +49,9 @@ scripts/
 ```bash
 # Make scripts executable
 chmod +x scripts/*.sh
+
+# Copy the versions file (gitignored — edit if you want different versions)
+cp scripts/versions.env.sample scripts/versions.env
 
 # 1. Install system dependencies (Docker, K3s, Helm, k9s)
 ./scripts/install-dependencies.sh
