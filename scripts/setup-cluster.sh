@@ -156,9 +156,17 @@ echo ""
 
 echo "Verificando detecção de GPU (aguardando device plugin reiniciar)..."
 kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=120s 2>/dev/null || true
-# Aguarda o kubelet receber o registro da GPU do device plugin
-sleep 10
-GPU_COUNT=$(kubectl get nodes -o json | jq -r '.items[0].status.capacity["nvidia.com/gpu"] // "0"' 2>/dev/null || echo "0")
+
+# Aguarda o kubelet receber o registro da GPU do device plugin (pode demorar até 60s)
+GPU_COUNT="0"
+for i in $(seq 1 6); do
+    GPU_COUNT=$(kubectl get nodes -o json | jq -r '.items[0].status.capacity["nvidia.com/gpu"] // "0"' 2>/dev/null || echo "0")
+    if [ "$GPU_COUNT" != "0" ] && [ "$GPU_COUNT" != "null" ] && [ -n "$GPU_COUNT" ]; then
+        break
+    fi
+    echo "   Aguardando kubelet registrar GPU... ($i/6)"
+    sleep 10
+done
 
 if [ "$GPU_COUNT" != "0" ] && [ "$GPU_COUNT" != "null" ] && [ -n "$GPU_COUNT" ]; then
     echo -e "${GREEN}GPU detectada: $GPU_COUNT device(s)${NC}"
