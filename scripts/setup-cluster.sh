@@ -142,17 +142,15 @@ else
     echo -e "${GREEN}NVIDIA Device Plugin instalado${NC}"
 fi
 
-# O device plugin precisa usar o runtime nvidia para enxergar as GPUs via NVML.
-# Só patcha se ainda não estiver configurado para evitar rollout desnecessário.
+# O device plugin detecta GPUs via NVML no host — não precisa de runtimeClassName nvidia.
+# Remove o runtimeClassName caso tenha sido aplicado em runs anteriores.
 CURRENT_RUNTIME=$(kubectl get daemonset nvidia-device-plugin-daemonset -n kube-system \
     -o jsonpath='{.spec.template.spec.runtimeClassName}' 2>/dev/null || echo "")
-if [ "$CURRENT_RUNTIME" != "nvidia" ]; then
-    echo "Configurando device plugin para usar runtime nvidia..."
+if [ -n "$CURRENT_RUNTIME" ]; then
+    echo "Removendo runtimeClassName do device plugin (nao necessario)..."
     kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='json' \
-      -p='[{"op": "add", "path": "/spec/template/spec/runtimeClassName", "value": "nvidia"}]'
-    echo -e "${GREEN}Device plugin configurado com runtimeClassName nvidia${NC}"
-else
-    echo -e "${YELLOW}Aviso: Device plugin ja configurado com runtimeClassName nvidia${NC}"
+      -p='[{"op": "remove", "path": "/spec/template/spec/runtimeClassName"}]' 2>/dev/null || true
+    echo -e "${GREEN}runtimeClassName removido${NC}"
 fi
 echo ""
 
