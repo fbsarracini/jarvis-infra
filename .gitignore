@@ -12,6 +12,8 @@ kubeconfig
 # Helm
 charts/*/charts/
 *.tgz
+**/values-*.yaml
+!**/values-example.yaml
 
 # IDE
 .vscode/

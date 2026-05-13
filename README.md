@@ -13,24 +13,41 @@ Home server K3s cluster para desenvolvimento e experimentação com LLMs/RAG.
 - Helm 3
 
 ## Estrutura
+```
 kubernetes/
 ├── namespaces/     # Definições de namespaces
-├── system/         # Infraestrutura (ingress, monitoring)
-├── llm/            # Ollama, vector DBs, RAG stack
-└── apps/           # Aplicações auxiliares
+├── system/         # (TODO) Infraestrutura (ingress, monitoring)
+├── llm/            # (TODO) Ollama, vector DBs, RAG stack
+└── apps/           # (TODO) Aplicações auxiliares
+```
+
+## Pré-requisitos
+
+- Ubuntu Server 24.04 LTS instalado
+- Drivers NVIDIA instalados e funcionando (`nvidia-smi` deve retornar sem erro)
+- Acesso sudo
 
 ## Instalação Inicial
 
 ```bash
-# 1. Instalar dependências do sistema
+# Tornar os scripts executáveis
+chmod +x scripts/*.sh
+
+# 1. Instalar dependências do sistema (Docker, K3s, Helm, k9s)
 ./scripts/install-dependencies.sh
 
-# 2. Setup do cluster
+# Relogin necessário após instalação do Docker (grupo docker)
+# ou execute: newgrp docker
+
+# 2. Setup do cluster (namespaces, NVIDIA runtime, device plugin, metrics-server)
 ./scripts/setup-cluster.sh
 
-# 3. Verificar
+# 3. Validar instalação
+./scripts/validate-cluster.sh
+
+# 4. Verificar manualmente
 kubectl get nodes
-helm version
+kubectl top nodes
 ```
 
 ## Namespaces

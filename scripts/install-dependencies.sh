@@ -48,6 +48,8 @@ if ! command_exists kubectl; then
 
     # Configurar kubectl
     mkdir -p ~/.kube
+    echo "Aguardando k3s.yaml ser gerado..."
+    until sudo test -f /etc/rancher/k3s/k3s.yaml; do sleep 2; done
     sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
     sudo chown $USER:$USER ~/.kube/config
     export KUBECONFIG=~/.kube/config
@@ -81,7 +83,8 @@ fi
 if ! command_exists k9s; then
     echo "Instalando k9s..."
     K9S_VERSION=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | jq -r .tag_name)
-    curl -sL "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin k9s
+    ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+    curl -sL "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${ARCH}.tar.gz" | sudo tar xz -C /usr/local/bin k9s
 else
     echo "k9s ja instalado"
 fi

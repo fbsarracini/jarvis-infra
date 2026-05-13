@@ -22,6 +22,11 @@ command_exists() {
 
 echo "Verificando pre-requisitos..."
 
+if ! command -v nvidia-smi &>/dev/null; then
+    echo -e "${RED}Erro: NVIDIA drivers nao instalados. Execute nvidia-smi para confirmar antes de continuar.${NC}"
+    exit 1
+fi
+
 if ! command_exists kubectl; then
     echo -e "${RED}Erro: kubectl nao encontrado. K3s nao esta instalado${NC}"
     exit 1
@@ -81,7 +86,8 @@ echo "Instalando NVIDIA Device Plugin..."
 if kubectl get daemonset -n kube-system nvidia-device-plugin-daemonset &>/dev/null; then
     echo -e "${YELLOW}Aviso: NVIDIA Device Plugin ja instalado${NC}"
 else
-    kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.5/nvidia-device-plugin.yml
+    # Versão: https://github.com/NVIDIA/k8s-device-plugin/releases
+    kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.17.0/deployments/static/nvidia-device-plugin.yml
     echo -e "${GREEN}NVIDIA Device Plugin instalado${NC}"
 fi
 echo ""
