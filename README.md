@@ -1,58 +1,72 @@
 # Jarvis Infrastructure
 
-Home server K3s cluster para desenvolvimento e experimentação com LLMs/RAG.
+K3s cluster running on a home server for LLM/RAG development and experimentation.
 
 ## Hardware
-- Acer Nitro 5
-- NVIDIA GeForce GTX 1060 (6GB VRAM — comporta modelos até ~7B em Q4, ex: mistral:7b-q4 ~4GB)
-- Ubuntu Server 24.04 LTS
+
+| Component | Details |
+|-----------|---------|
+| Machine | Acer Nitro 5 |
+| GPU | NVIDIA GeForce GTX 1060 (6GB VRAM) |
+| OS | Ubuntu Server 24.04 LTS |
+
+> The GTX 1060 6GB fits models up to ~7B at Q4 quantization (e.g. `mistral:7b-q4` ~4GB).
 
 ## Stack
-- K3s (Kubernetes)
-- Docker + NVIDIA Container Runtime
-- Helm 3
 
-## Estrutura
+- **K3s** — lightweight Kubernetes
+- **Docker** + NVIDIA Container Runtime
+- **Helm 3**
+
+## Repository Structure
+
 ```
 kubernetes/
-├── namespaces/     # Definições de namespaces
-├── system/         # (TODO) Infraestrutura (ingress, monitoring)
-├── llm/            # (TODO) Ollama, vector DBs, RAG stack
-└── apps/           # (TODO) Aplicações auxiliares
+├── namespaces/   # Namespace definitions
+├── system/       # Core infrastructure (ingress, monitoring)
+├── llm/          # Ollama, vector DBs, RAG stack
+└── apps/         # Auxiliary applications
+
+scripts/
+├── install-dependencies.sh   # Installs Docker, K3s, Helm, k9s
+├── setup-cluster.sh          # Configures namespaces, NVIDIA runtime, device plugin
+└── validate-cluster.sh       # Validates the cluster setup
 ```
 
-## Pré-requisitos
+## Prerequisites
 
-- Ubuntu Server 24.04 LTS instalado
-- Drivers NVIDIA instalados e funcionando (`nvidia-smi` deve retornar sem erro)
-- Acesso sudo
+- Ubuntu Server 24.04 LTS
+- NVIDIA drivers installed and working (`nvidia-smi` must return without errors)
+- `sudo` access
 
-## Instalação Inicial
+## Setup
 
 ```bash
-# Tornar os scripts executáveis
+# Make scripts executable
 chmod +x scripts/*.sh
 
-# 1. Instalar dependências do sistema (Docker, K3s, Helm, k9s)
+# 1. Install system dependencies (Docker, K3s, Helm, k9s)
 ./scripts/install-dependencies.sh
 
-# Relogin necessário após instalação do Docker (grupo docker)
-# ou execute: newgrp docker
+# Re-login required after Docker installation (docker group)
+# or run: newgrp docker
 
-# 2. Setup do cluster (namespaces, NVIDIA runtime, device plugin, metrics-server)
+# 2. Set up the cluster (namespaces, NVIDIA runtime, device plugin, metrics-server)
 ./scripts/setup-cluster.sh
 
-# 3. Validar instalação
+# 3. Validate the installation
 ./scripts/validate-cluster.sh
 
-# 4. Verificar manualmente
+# 4. Quick sanity check
 kubectl get nodes
 kubectl top nodes
 ```
 
 ## Namespaces
 
-- `system` - Infraestrutura core
-- `llm` - Stack LLM/RAG
-- `monitoring` - Prometheus, Grafana
-- `apps` - Aplicações gerais
+| Namespace | Purpose |
+|-----------|---------|
+| `system` | Core infrastructure |
+| `llm` | LLM/RAG stack |
+| `monitoring` | Prometheus, Grafana |
+| `apps` | General applications |
