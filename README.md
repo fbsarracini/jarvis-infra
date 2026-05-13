@@ -2,15 +2,18 @@
 
 K3s cluster running on a home server for LLM/RAG development and experimentation.
 
-## Hardware
+## Hardware Compatibility
 
-| Component | Details |
-|-----------|---------|
-| Machine | Acer Nitro 5 |
-| GPU | NVIDIA GeForce GTX 1060 (6GB VRAM) |
-| OS | Ubuntu Server 24.04 LTS |
+Tested with an **NVIDIA GeForce GTX 1060 (6GB VRAM)**, but compatible with any NVIDIA GPU supported by the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/supported-platforms.html).
 
-> The GTX 1060 6GB fits models up to ~7B at Q4 quantization (e.g. `mistral:7b-q4` ~4GB).
+| VRAM | Capability |
+|------|------------|
+| 4GB  | Small models (~3B Q4) |
+| 6GB  | Up to ~7B Q4 (e.g. `mistral:7b-q4` ~4GB) |
+| 8GB  | Up to ~13B Q4 |
+| 16GB+ | 30B+ models |
+
+**OS:** Ubuntu Server 22.04 / 24.04 LTS (or any Debian-based distro with NVIDIA driver support)
 
 ## Stack
 
