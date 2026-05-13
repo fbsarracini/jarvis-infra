@@ -10,8 +10,6 @@ spec:
           securityContext:
             privileged: true
             allowPrivilegeEscalation: true
-            capabilities:
-              drop: []
           volumeMounts:
             - name: nvidia-libs
               mountPath: /usr/local/nvidia/lib64

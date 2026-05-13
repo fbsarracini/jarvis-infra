@@ -50,6 +50,11 @@ if ! command_exists helm; then
     exit 1
 fi
 
+if ! command_exists jq; then
+    echo -e "${RED}Erro: jq nao encontrado. Instale com: sudo apt-get install -y jq${NC}"
+    exit 1
+fi
+
 echo -e "${GREEN}Pre-requisitos OK${NC}"
 echo ""
 
@@ -78,7 +83,7 @@ if ! command -v nvidia-ctk &>/dev/null; then
         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
         sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
     sudo apt-get update -q
-    sudo apt-get install -y nvidia-container-toolkit
+    sudo apt-get install -y "nvidia-container-toolkit=${NVIDIA_CONTAINER_TOOLKIT_VERSION}"
 fi
 
 K3S_CONTAINERD_TMPL="/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
@@ -203,6 +208,7 @@ helm repo add stable https://charts.helm.sh/stable 2>/dev/null || true
 helm repo add bitnami https://charts.bitnami.com/bitnami 2>/dev/null || true
 helm repo add jetstack https://charts.jetstack.io 2>/dev/null || true
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx 2>/dev/null || true
 helm repo update
 echo -e "${GREEN}Helm repos configurados${NC}"
 echo ""
@@ -211,7 +217,9 @@ echo "Instalando metrics-server..."
 if kubectl get deployment metrics-server -n kube-system &>/dev/null; then
     echo -e "${YELLOW}Aviso: metrics-server ja instalado${NC}"
 else
-    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    kubectl apply -f "https://github.com/kubernetes-sigs/metrics-server/releases/download/${METRICS_SERVER_VERSION}/components.yaml"
+
+    kubectl wait --for=condition=available --timeout=60s deployment/metrics-server -n kube-system
 
     # Patch para aceitar certificados inseguros (ambiente local)
     kubectl patch deployment metrics-server -n kube-system --type='json' \
@@ -223,6 +231,19 @@ echo ""
 
 echo "Aguardando metrics-server ficar ready..."
 kubectl wait --for=condition=available --timeout=60s deployment/metrics-server -n kube-system 2>/dev/null || true
+echo ""
+
+echo "Instalando ingress-nginx..."
+if helm list -n ingress-nginx | grep -q ingress-nginx; then
+    echo -e "${YELLOW}Aviso: ingress-nginx ja instalado${NC}"
+else
+    helm install ingress-nginx ingress-nginx/ingress-nginx \
+      --version "${INGRESS_NGINX_CHART_VERSION}" \
+      --namespace ingress-nginx \
+      --create-namespace \
+      --values "$REPO_ROOT/kubernetes/system/ingress-nginx/values.yaml"
+    echo -e "${GREEN}ingress-nginx instalado${NC}"
+fi
 echo ""
 
 # Resumo final
