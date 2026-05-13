@@ -35,6 +35,20 @@ check_optional() {
     fi
 }
 
+check_gpu() {
+    if eval "$2" &>/dev/null; then
+        echo -e "${GREEN} $1${NC}"
+        ((PASSED++))
+    else
+        echo -e "${RED} $1${NC}"
+        ((FAILED++))
+        if [ -n "$3" ]; then
+            echo -e "${YELLOW}   Diagnostico:${NC}"
+            eval "$3" 2>&1 | sed 's/^/     /'
+        fi
+    fi
+}
+
 echo "Sistema Base:"
 check "Docker instalado" "command -v docker"
 check "K3s instalado" "command -v kubectl"
@@ -48,7 +62,21 @@ echo "Cluster K3s:"
 check "Cluster respondendo" "kubectl get nodes"
 check "Node ready" "kubectl get nodes | grep -q Ready"
 check "Metrics-server funcionando" "kubectl top nodes"
-check "GPU detectada" "kubectl get nodes -o json | jq -e '.items[0].status.capacity[\"nvidia.com/gpu\"]'"
+echo ""
+
+echo "GPU no Cluster:"
+check_gpu "NVIDIA runtime no containerd do K3s" \
+    "sudo grep -q nvidia /var/lib/rancher/k3s/agent/etc/containerd/config.toml" \
+    "echo 'Execute: sudo nvidia-ctk runtime configure --runtime=containerd --config=/var/lib/rancher/k3s/agent/etc/containerd/config.toml && sudo systemctl restart k3s'"
+check_gpu "NVIDIA Device Plugin instalado" \
+    "kubectl get daemonset -n kube-system nvidia-device-plugin-daemonset" \
+    "echo 'Execute: kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.17.0/deployments/static/nvidia-device-plugin.yml'"
+check_gpu "NVIDIA Device Plugin pods rodando" \
+    "kubectl get pods -n kube-system -l name=nvidia-device-plugin-ds --field-selector=status.phase=Running | grep -q Running" \
+    "kubectl get pods -n kube-system -l name=nvidia-device-plugin-ds; echo '---'; kubectl logs -n kube-system -l name=nvidia-device-plugin-ds --tail=20"
+check_gpu "GPU detectada no node" \
+    "kubectl get nodes -o json | jq -e '.items[0].status.capacity[\"nvidia.com/gpu\"]'" \
+    "kubectl get nodes -o json | jq '.items[0].status.capacity'"
 echo ""
 
 echo "Namespaces:"
