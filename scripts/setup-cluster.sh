@@ -107,14 +107,7 @@ else
     echo "Usando runtime: $NVIDIA_BINARY"
 
     sudo mkdir -p "$(dirname "$K3S_CONTAINERD_TMPL")"
-    sudo tee "$K3S_CONTAINERD_TMPL" > /dev/null <<TMPL
-{{ template "base" . }}
-
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes."nvidia"]
-  runtime_type = "io.containerd.runc.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes."nvidia".options]
-  BinaryName = "${NVIDIA_BINARY}"
-TMPL
+    sed "s|\${NVIDIA_BINARY}|$NVIDIA_BINARY|g" "$REPO_ROOT/configs/containerd/config.toml.tmpl" | sudo tee "$K3S_CONTAINERD_TMPL" > /dev/null
     echo -e "${GREEN}NVIDIA runtime configurado no containerd${NC}"
     echo "Reiniciando K3s para aplicar configuracao..."
     sudo systemctl restart k3s
@@ -146,13 +139,7 @@ echo -e "${GREEN}Libs NVIDIA copiadas de $NVIDIA_LIB_SRC para /usr/local/nvidia/
 echo ""
 
 echo "Criando RuntimeClass nvidia..."
-kubectl apply -f - <<EOF
-apiVersion: node.k8s.io/v1
-kind: RuntimeClass
-metadata:
-  name: nvidia
-handler: nvidia
-EOF
+kubectl apply -f "$REPO_ROOT/kubernetes/system/runtimeclass-nvidia.yaml"
 echo -e "${GREEN}RuntimeClass nvidia criado${NC}"
 echo ""
 
