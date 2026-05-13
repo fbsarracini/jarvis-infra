@@ -69,17 +69,32 @@ if ! command -v nvidia-ctk &>/dev/null; then
 fi
 
 K3S_CONTAINERD_CONFIG="/var/lib/rancher/k3s/agent/etc/containerd/config.toml"
-if sudo grep -q "nvidia" "$K3S_CONTAINERD_CONFIG" 2>/dev/null; then
+K3S_CONTAINERD_TMPL="${K3S_CONTAINERD_CONFIG}.tmpl"
+
+if sudo grep -q "nvidia" "$K3S_CONTAINERD_TMPL" 2>/dev/null || sudo grep -q "nvidia" "$K3S_CONTAINERD_CONFIG" 2>/dev/null; then
     echo -e "${YELLOW}Aviso: NVIDIA runtime ja configurado no containerd do K3s${NC}"
 else
     sudo mkdir -p "$(dirname "$K3S_CONTAINERD_CONFIG")"
     sudo nvidia-ctk runtime configure --runtime=containerd --config="$K3S_CONTAINERD_CONFIG"
+    # Copia para .tmpl para persistir entre restarts do k3s (k3s regenera o .toml a partir do .tmpl)
+    sudo cp "$K3S_CONTAINERD_CONFIG" "$K3S_CONTAINERD_TMPL"
     echo -e "${GREEN}NVIDIA runtime configurado no containerd${NC}"
     echo "Reiniciando K3s para aplicar configuracao..."
     sudo systemctl restart k3s
     echo "Aguardando K3s voltar..."
     kubectl wait --for=condition=Ready node --all --timeout=90s
 fi
+echo ""
+
+echo "Criando RuntimeClass nvidia..."
+kubectl apply -f - <<EOF
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: nvidia
+handler: nvidia
+EOF
+echo -e "${GREEN}RuntimeClass nvidia criado${NC}"
 echo ""
 
 echo "Instalando NVIDIA Device Plugin..."
@@ -90,6 +105,12 @@ else
     kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.17.0/deployments/static/nvidia-device-plugin.yml
     echo -e "${GREEN}NVIDIA Device Plugin instalado${NC}"
 fi
+
+# O device plugin precisa usar o runtime nvidia para enxergar as GPUs via NVML
+echo "Configurando device plugin para usar runtime nvidia..."
+kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='json' \
+  -p='[{"op": "add", "path": "/spec/template/spec/runtimeClassName", "value": "nvidia"}]'
+echo -e "${GREEN}Device plugin configurado com runtimeClassName nvidia${NC}"
 echo ""
 
 echo "Verificando detecção de GPU..."
