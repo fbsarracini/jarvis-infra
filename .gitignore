@@ -1,0 +1,22 @@
+# Secrets
+**/secrets.yaml
+*.key
+*.pem
+.env
+*.env
+
+# Kubeconfig
+kubeconfig
+*.kubeconfig
+
+# Helm
+charts/*/charts/
+*.tgz
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
