@@ -66,8 +66,8 @@ echo ""
 
 echo "GPU no Cluster:"
 check_gpu "NVIDIA runtime no containerd do K3s" \
-    "sudo grep -q nvidia /var/lib/rancher/k3s/agent/etc/containerd/config.toml" \
-    "echo 'Execute: sudo nvidia-ctk runtime configure --runtime=containerd --config=/var/lib/rancher/k3s/agent/etc/containerd/config.toml && sudo systemctl restart k3s'"
+    "sudo grep -q nvidia /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl" \
+    "echo 'Execute: scripts/setup-cluster.sh para reconfigurar o runtime nvidia no containerd'"
 check_gpu "NVIDIA Device Plugin instalado" \
     "kubectl get daemonset -n kube-system nvidia-device-plugin-daemonset" \
     "echo 'Execute: kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.17.0/deployments/static/nvidia-device-plugin.yml'"

@@ -68,16 +68,23 @@ if ! command -v nvidia-ctk &>/dev/null; then
     sudo apt install -y nvidia-container-toolkit
 fi
 
-K3S_CONTAINERD_CONFIG="/var/lib/rancher/k3s/agent/etc/containerd/config.toml"
-K3S_CONTAINERD_TMPL="${K3S_CONTAINERD_CONFIG}.tmpl"
+K3S_CONTAINERD_TMPL="/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
 
-if sudo grep -q "nvidia" "$K3S_CONTAINERD_TMPL" 2>/dev/null || sudo grep -q "nvidia" "$K3S_CONTAINERD_CONFIG" 2>/dev/null; then
+# Usa {{ template "base" . }} para estender o config padrão do K3s sem sobrescrevê-lo.
+# Isso garante que upgrades do K3s não quebrem o config e o nvidia fica sempre presente.
+if sudo test -f "$K3S_CONTAINERD_TMPL" && sudo grep -q "nvidia" "$K3S_CONTAINERD_TMPL" 2>/dev/null; then
     echo -e "${YELLOW}Aviso: NVIDIA runtime ja configurado no containerd do K3s${NC}"
 else
-    sudo mkdir -p "$(dirname "$K3S_CONTAINERD_CONFIG")"
-    sudo nvidia-ctk runtime configure --runtime=containerd --config="$K3S_CONTAINERD_CONFIG"
-    # Copia para .tmpl para persistir entre restarts do k3s (k3s regenera o .toml a partir do .tmpl)
-    sudo cp "$K3S_CONTAINERD_CONFIG" "$K3S_CONTAINERD_TMPL"
+    NVIDIA_BINARY=$(command -v nvidia-container-runtime 2>/dev/null || echo "/usr/bin/nvidia-container-runtime")
+    sudo mkdir -p "$(dirname "$K3S_CONTAINERD_TMPL")"
+    sudo tee "$K3S_CONTAINERD_TMPL" > /dev/null <<TMPL
+{{ template "base" . }}
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes."nvidia"]
+  runtime_type = "io.containerd.runc.v2"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes."nvidia".options]
+  BinaryName = "${NVIDIA_BINARY}"
+TMPL
     echo -e "${GREEN}NVIDIA runtime configurado no containerd${NC}"
     echo "Reiniciando K3s para aplicar configuracao..."
     sudo systemctl restart k3s
@@ -106,11 +113,18 @@ else
     echo -e "${GREEN}NVIDIA Device Plugin instalado${NC}"
 fi
 
-# O device plugin precisa usar o runtime nvidia para enxergar as GPUs via NVML
-echo "Configurando device plugin para usar runtime nvidia..."
-kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='json' \
-  -p='[{"op": "add", "path": "/spec/template/spec/runtimeClassName", "value": "nvidia"}]'
-echo -e "${GREEN}Device plugin configurado com runtimeClassName nvidia${NC}"
+# O device plugin precisa usar o runtime nvidia para enxergar as GPUs via NVML.
+# Só patcha se ainda não estiver configurado para evitar rollout desnecessário.
+CURRENT_RUNTIME=$(kubectl get daemonset nvidia-device-plugin-daemonset -n kube-system \
+    -o jsonpath='{.spec.template.spec.runtimeClassName}' 2>/dev/null || echo "")
+if [ "$CURRENT_RUNTIME" != "nvidia" ]; then
+    echo "Configurando device plugin para usar runtime nvidia..."
+    kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type='json' \
+      -p='[{"op": "add", "path": "/spec/template/spec/runtimeClassName", "value": "nvidia"}]'
+    echo -e "${GREEN}Device plugin configurado com runtimeClassName nvidia${NC}"
+else
+    echo -e "${YELLOW}Aviso: Device plugin ja configurado com runtimeClassName nvidia${NC}"
+fi
 echo ""
 
 echo "Verificando detecção de GPU (aguardando device plugin reiniciar)..."
