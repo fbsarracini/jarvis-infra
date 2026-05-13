@@ -1,0 +1,76 @@
+---
+# Deployment com nginx simples para validar que o Ingress Controller está funcionando
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world
+  namespace: system
+  labels:
+    app: hello-world
+    env: jarvis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-world
+  template:
+    metadata:
+      labels:
+        app: hello-world
+        env: jarvis
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+---
+# Service ClusterIP expondo o Deployment internamente no cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-world
+  namespace: system
+  labels:
+    app: hello-world
+    env: jarvis
+spec:
+  selector:
+    app: hello-world
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+# Ingress que roteia test.jarvis.local → Service hello-world
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-world
+  namespace: system
+  labels:
+    app: hello-world
+    env: jarvis
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: test.jarvis.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello-world
+                port:
+                  number: 80
