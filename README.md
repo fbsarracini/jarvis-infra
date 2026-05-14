@@ -103,6 +103,25 @@ make gpu-status      # GPU capacity on the cluster node
 | `monitoring` | Prometheus, Grafana |
 | `apps` | General applications |
 
+## Contributing
+
+Contributions and bug reports are welcome. Please keep the [scope](#️-scope--limitations) in mind.
+
+### Reporting Issues
+
+1. Check [existing issues](https://github.com/fabiosobottka/jarvis-infra/issues) to avoid duplicates.
+2. Open a new issue and include:
+   - **Description** — what you expected vs. what happened
+   - **Steps to reproduce** — minimal commands or config to trigger the problem
+   - **Environment** — GPU model, VRAM, OS version, K3s version (`k3s --version`)
+   - **Logs** — relevant output from `make validate`, `kubectl describe`, or `journalctl -u k3s`
+
+### Suggesting Changes
+
+Open an issue before submitting a PR for non-trivial changes. This avoids wasted effort if the change is out of scope.
+
+---
+
 ## Known Risks
 
 Most component versions are pinned in `scripts/versions.env` to avoid unexpected breakage. Two external dependencies cannot be fully pinned:
