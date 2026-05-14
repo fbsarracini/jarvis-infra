@@ -1,10 +1,12 @@
 # Jarvis Infrastructure
 
-K3s cluster running on a home server for LLM/RAG development and experimentation.
+> Prefere ler em português? [README em pt-BR disponível aqui.](README.pt-BR.md)
+
+A ready-to-use K3s cluster setup for running LLMs on your homelab with NVIDIA GPU support. Get Ollama and a full RAG stack running on your own hardware in minutes.
 
 ## ⚠️ Scope & Limitations
 
-This project is a **personal homelab setup** for local LLM/RAG experimentation.
+This project is a **homelab setup template** — designed to help you spin up a local LLM cluster on your own hardware with minimal friction.
 It is intentionally simple: plain shell scripts, single-node K3s, and public images.
 
 It is **not** designed for:
@@ -12,6 +14,8 @@ It is **not** designed for:
 - High availability or disaster recovery
 - Security hardening (no Vault, no Network Policies, no image signing)
 - Custom or private Docker registries
+
+> **Security is out of scope.** Securing your homelab is your responsibility. The tips at the bottom of this file are a starting point — not a security baseline.
 
 Contributions and suggestions are welcome — just keep the scope in mind.
 
@@ -222,3 +226,14 @@ make ingress-status   # Pods, services, and all Ingress resources
 make ingress-logs     # Stream controller logs
 make ingress-upgrade  # Upgrade after changing values.yaml or version
 ```
+
+## Security Tips
+
+> These tips are a starting point to reduce obvious exposure — not a security baseline. Securing a homelab is your responsibility.
+
+A few low-effort steps that make a meaningful difference:
+
+- **Firewall (UFW):** SSH (22), K3s API (6443), and Kubelet (10250) listen on all interfaces by default. Restrict them to your local subnet. See [UFW documentation](https://help.ubuntu.com/community/UFW).
+- **SSH keys only:** Disable password-based SSH login and use key authentication. Make sure your public key is in `~/.ssh/authorized_keys` before disabling passwords — editing `sshd_config` manually is safer than running `sed` on it blindly, as syntax varies between distros and OpenSSH versions.
+- **OS updates:** Enable `unattended-upgrades` for security patches. Bump K3s version in `scripts/versions.env` and re-run `make install` periodically.
+- **Kubeconfig:** Run `chmod 600 ~/.kube/config`. Never commit or share it — it grants full cluster admin access.
