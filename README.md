@@ -33,6 +33,7 @@ Tested with an **NVIDIA GeForce GTX 1060 (6GB VRAM)**, but compatible with any N
 - **K3s** — lightweight Kubernetes
 - **Docker** + NVIDIA Container Runtime
 - **Helm 3**
+- **Make** — task runner for all operations
 
 ## Repository Structure
 
@@ -49,6 +50,8 @@ scripts/
 ├── validate-cluster.sh       # Validates the cluster setup
 ├── versions.env.sample       # Template for versions.env (copy before running scripts)
 └── versions.env              # Local overrides (gitignored)
+
+Makefile                      # Task runner — run `make help` to see all targets
 ```
 
 ## Prerequisites
@@ -56,31 +59,39 @@ scripts/
 - Ubuntu Server 24.04 LTS
 - NVIDIA drivers installed and working (`nvidia-smi` must return without errors)
 - `sudo` access
+- `make` (`sudo apt install make`)
 
 ## Setup
 
 ```bash
-# Make scripts executable
-chmod +x scripts/*.sh
+# See all available commands
+make help
 
-# Copy the versions file (gitignored — edit if you want different versions)
-cp scripts/versions.env.sample scripts/versions.env
+# 1. Copy versions.env.sample → versions.env (edit if you want different versions)
+make init
 
-# 1. Install system dependencies (Docker, K3s, Helm, k9s)
-./scripts/install-dependencies.sh
+# 2. Install system dependencies (Docker, K3s, Helm, k9s)
+make install
 
 # Re-login required after Docker installation (docker group)
 # or run: newgrp docker
 
-# 2. Set up the cluster (namespaces, NVIDIA runtime, device plugin, metrics-server)
-./scripts/setup-cluster.sh
+# 3. Set up the cluster (namespaces, NVIDIA runtime, device plugin, metrics-server, ingress)
+make setup
 
-# 3. Validate the installation
-./scripts/validate-cluster.sh
+# 4. Validate the installation
+make validate
 
-# 4. Quick sanity check
-kubectl get nodes
-kubectl top nodes
+# Or run all steps in sequence:
+make all
+```
+
+### Useful day-to-day commands
+
+```bash
+make status          # Node status and resource usage
+make pods            # All pods across all namespaces
+make gpu-status      # GPU capacity on the cluster node
 ```
 
 ## Namespaces
@@ -121,37 +132,33 @@ Without MetalLB or a cloud provider, `LoadBalancer` services stay in `<pending>`
 ### Installation
 
 ```bash
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo update
+# Install (version controlled via scripts/versions.env)
+make ingress-install
 
-helm install ingress-nginx ingress-nginx/ingress-nginx \
-  --version 4.15.1 \
-  --namespace ingress-nginx \
-  --create-namespace \
-  --values kubernetes/system/ingress-nginx/values.yaml
+# Upgrade after changing values.yaml or bumping version in versions.env
+make ingress-upgrade
 ```
 
-### Verify:
+### Verify
 
 ```bash
-kubectl get pods -n ingress-nginx
-kubectl get svc -n ingress-nginx
+make ingress-status
 ```
 
 ### Testing
 
 ```bash
 # Deploy hello-world test resources
-kubectl apply -f kubernetes/system/ingress-nginx/test-ingress.yaml
+make ingress-test-deploy
 
-# Add hostname (replace 127.0.0.1 with your node IP from: kubectl get nodes -o wide)
-echo "127.0.0.1 test.jarvis.local" | sudo tee -a /etc/hosts
+# Add hostname (replace <NODE_IP> with output of: kubectl get nodes -o wide)
+echo "<NODE_IP> test.jarvis.local" | sudo tee -a /etc/hosts
 
 # Test
 curl http://test.jarvis.local:30080
 
 # Clean up
-kubectl delete -f kubernetes/system/ingress-nginx/test-ingress.yaml
+make ingress-test-clean
 ```
 
 ### Creating Ingress Resources
@@ -192,18 +199,7 @@ After applying, add the hostname to `/etc/hosts` and access it on port `:30080`.
 ### Useful Commands
 
 ```bash
-# Overall status
-kubectl get all -n ingress-nginx
-
-# Stream logs
-kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx -f
-
-# List all Ingress resources across the cluster
-kubectl get ingress -A
-
-# Upgrade after changing values.yaml
-helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
-  --version 4.15.1 \
-  --namespace ingress-nginx \
-  --values kubernetes/system/ingress-nginx/values.yaml
+make ingress-status   # Pods, services, and all Ingress resources
+make ingress-logs     # Stream controller logs
+make ingress-upgrade  # Upgrade after changing values.yaml or version
 ```
