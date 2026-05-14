@@ -12,6 +12,7 @@ It is **not** designed for:
 - High availability or disaster recovery
 - Security hardening (no Vault, no Network Policies, no image signing)
 - Custom or private Docker registries
+
 Contributions and suggestions are welcome — just keep the scope in mind.
 
 ## Hardware Compatibility
