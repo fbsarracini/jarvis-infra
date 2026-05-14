@@ -130,7 +130,7 @@ helm install ingress-nginx ingress-nginx/ingress-nginx \
   --values kubernetes/system/ingress-nginx/values.yaml
 ```
 
-Verify:
+### Verify:
 
 ```bash
 kubectl get pods -n ingress-nginx
